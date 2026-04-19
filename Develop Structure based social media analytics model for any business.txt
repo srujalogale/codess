@@ -1,0 +1,124 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import re
+
+# -------------------- Dataset --------------------
+data = {
+    "instagramname":[
+        "Virat Kohli","Cristiano Ronaldo","Selena Gomez","Kylie Jenner",
+        "Lionel Messi","Priyanka Chopra","Shakira","Neymar Jr",
+        "Kim Kardashian","Justin Bieber"
+    ],
+    "Followers":[
+        "260M","620M","430M","400M","500M","90M","90M","220M","360M","290M"
+    ],
+    "Engagement avg":[
+        "2.1M","3.2M","1.9M","2.0M","2.5M","0.8M","0.9M","1.5M","1.3M","1.4M"
+    ],
+    "Category":[
+        "Sports","Sports","Music","Lifestyle","Sports",
+        "Lifestyle","Music","Sports","Lifestyle","Music"
+    ],
+    "Audience Country":[
+        "India","Portugal","USA","USA","Argentina",
+        "India","Brazil","Brazil","USA","Canada"
+    ]
+}
+
+df_i = pd.DataFrame(data)
+
+# -------------------- Convert function --------------------
+def convert(x):
+    return re.findall(r'\d+\.?\d*', str(x))
+
+# -------------------- Convert K/M values --------------------
+def change(df, cols):
+    for i in cols:
+        df["new_" + i] = df[i].apply(convert)
+        df["new_" + i] = df["new_" + i].apply(lambda x: "".join(x))
+        df["new_" + i] = pd.to_numeric(df["new_" + i])
+
+        df["new_" + i] = np.where(
+            df[i].str.contains('M'),
+            df["new_" + i] * 1_000_000,
+            np.where(
+                df[i].str.contains('K'),
+                df["new_" + i] * 1_000,
+                df["new_" + i]
+            )
+        )
+    return df
+
+# Columns to convert
+li = ["Followers", "Engagement avg"]
+df_i = change(df_i, li)
+
+# -------------------- Engagement Rate --------------------
+df_i["Engagement Rate"] = np.round(
+    (df_i["new_Engagement avg"] / df_i["new_Followers"]) * 100,
+    3
+)
+
+# Convert followers to millions
+df_i["new_Followers"] = df_i["new_Followers"] / 1_000_000
+
+print(df_i.head())
+
+# -------------------- Visualization --------------------
+plt.figure(figsize=(8,6))
+plt.title("Top Instagram Influencers by Followers")
+
+sns.barplot(
+    y="instagramname",
+    x="new_Followers",
+    data=df_i.sort_values(by="new_Followers", ascending=False)
+)
+
+plt.xlabel("Followers (Millions)")
+plt.show()
+
+# Category distribution
+palette = ['red','green','yellow','blue','orange']
+
+plt.figure(figsize=(8,6))
+df_i["Category"].value_counts().plot.barh(color=palette)
+plt.title("Influencer Category Distribution")
+plt.show()
+
+# Audience Country distribution
+plt.figure(figsize=(8,6))
+df_i["Audience Country"].value_counts().plot.barh(color=palette)
+plt.title("Audience Country Distribution")
+plt.show()
+
+# -------------------- Mini Influencers (<300M) --------------------
+def for_mini_followers_instagram(country, category):
+    df1 = df_i[df_i["Audience Country"] == country]
+    df1_mini = df1[df1["new_Followers"] < 300]
+
+    return df1_mini.sort_values(
+        by="Engagement Rate",
+        ascending=False
+    ).groupby("Category").get_group(category)[
+        ["instagramname", "new_Followers", "Engagement Rate"]
+    ]
+
+print("\nMini Influencers:")
+print(for_mini_followers_instagram("India", "Lifestyle"))
+
+# -------------------- Mega Influencers (>300M) --------------------
+def for_mega_followers_instagram(country, category):
+    df1 = df_i[df_i["Audience Country"] == country]
+    df1_mega = df1[df1["new_Followers"] > 300]
+
+    return df1_mega.sort_values(
+        by="Engagement Rate",
+        ascending=False
+    ).groupby("Category").get_group(category)[
+        ["instagramname", "new_Followers", "Engagement Rate"]
+    ]
+
+print("\nMega Influencers:")
+print(for_mega_followers_instagram("USA", "Lifestyle"))

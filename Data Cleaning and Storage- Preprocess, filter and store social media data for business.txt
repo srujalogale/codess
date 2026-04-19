@@ -1,0 +1,169 @@
+# -------------------- Imports --------------------
+import os
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.feature_extraction.text import CountVectorizer
+import nltk
+import string
+import re
+from wordcloud import WordCloud
+
+# -------------------- Auto-create Data.csv --------------------
+def create_csv_if_not_exists():
+    if not os.path.exists("Data.csv"):
+        data = {
+            "UserId": [
+                "U001","U002","U003","U004","U005",
+                "U006","U007","U008","U009","U010",
+                "U011","U012","U013","U014","U015",
+                "U016","U017","U018","U019","U020"
+            ],
+            "Tweet": [
+                "This medicine caused severe headache and nausea",
+                "Feeling dizzy after taking this drug",
+                "No side effects noticed so far",
+                "The tablet helped me recover quickly",
+                "After using this drug I developed skin rashes",
+                "Excellent results very effective medicine",
+                "This medication caused stomach pain",
+                "Doctor prescribed this and it works well",
+                "I experienced vomiting and fatigue",
+                "No problems at all feeling better",
+                "Drug caused sleep issues and anxiety",
+                "Very happy with the treatment",
+                "This medicine made my condition worse",
+                "Fast recovery and no adverse effects",
+                "I felt weakness after taking this pill",
+                "Highly recommend this medication",
+                "Caused severe allergic reaction",
+                "Treatment was smooth and effective",
+                "This drug increased my blood pressure",
+                "No negative reaction observed"
+            ],
+            "ADR_label": [
+                1,1,0,0,1,
+                0,1,0,1,0,
+                1,0,1,0,1,
+                0,1,0,1,0
+            ]
+        }
+        df = pd.DataFrame(data)
+        df.to_csv("Data.csv", index=False)
+        print("Data.csv created successfully")
+
+# Call CSV creation
+create_csv_if_not_exists()
+
+# -------------------- Load Data --------------------
+def load_data():
+    return pd.read_csv("Data.csv")
+
+tweet_df = load_data()
+
+print('Dataset size:', tweet_df.shape)
+print('Columns are:', tweet_df.columns)
+tweet_df.info()
+
+# -------------------- Visualization --------------------
+sns.countplot(x='ADR_label', data=tweet_df)
+plt.title("ADR vs Non-ADR Tweet Count")
+plt.show()
+
+# -------------------- Text Cleaning --------------------
+df = tweet_df[['UserId','Tweet']].copy()
+
+def remove_punct(text):
+    text = "".join(c for c in str(text) if c not in string.punctuation)
+    text = re.sub(r'[0-9]+', '', text)
+    return text
+
+df['Tweet_punct'] = df['Tweet'].apply(remove_punct)
+
+def tokenization(text):
+    return re.split(r'\W+', text.lower())
+
+df['Tweet_tokenized'] = df['Tweet_punct'].apply(tokenization)
+
+# -------------------- Stopwords --------------------
+nltk.download('stopwords')
+stopword = nltk.corpus.stopwords.words('english')
+
+def remove_stopwords(tokens):
+    return [word for word in tokens if word not in stopword]
+
+df['Tweet_nonstop'] = df['Tweet_tokenized'].apply(remove_stopwords)
+
+# -------------------- Stemming --------------------
+ps = nltk.PorterStemmer()
+
+def stemming(tokens):
+    return [ps.stem(word) for word in tokens]
+
+df['Tweet_stemmed'] = df['Tweet_nonstop'].apply(stemming)
+
+# -------------------- Lemmatization --------------------
+nltk.download('wordnet')
+wn = nltk.WordNetLemmatizer()
+
+def lemmatizer(tokens):
+    return [wn.lemmatize(word) for word in tokens]
+
+df['Tweet_lemmatized'] = df['Tweet_nonstop'].apply(lemmatizer)
+
+# -------------------- WordCloud --------------------
+df_ADR = tweet_df[tweet_df['ADR_label'] == 1]
+df_NADR = tweet_df[tweet_df['ADR_label'] == 0]
+
+tweet_All = " ".join(tweet_df['Tweet'].astype(str))
+tweet_ADR = " ".join(df_ADR['Tweet'].astype(str))
+tweet_NADR = " ".join(df_NADR['Tweet'].astype(str))
+
+fig, ax = plt.subplots(3, 1, figsize=(25,25))
+
+wc_all = WordCloud(background_color="white", max_words=100).generate(tweet_All)
+wc_adr = WordCloud(background_color="white", max_words=100).generate(tweet_ADR)
+wc_nadr = WordCloud(background_color="white", max_words=100).generate(tweet_NADR)
+
+ax[0].imshow(wc_all)
+ax[0].set_title("All Tweets")
+ax[0].axis("off")
+
+ax[1].imshow(wc_adr)
+ax[1].set_title("ADR Tweets")
+ax[1].axis("off")
+
+ax[2].imshow(wc_nadr)
+ax[2].set_title("Non-ADR Tweets")
+ax[2].axis("off")
+
+plt.show()
+
+# -------------------- Count Vectorizer --------------------
+def clean_text(text):
+    text = text.lower()
+    text = re.sub(r'[%s]' % re.escape(string.punctuation), '', text)
+    text = re.sub(r'[0-9]+', '', text)
+    tokens = re.split(r'\W+', text)
+    return [ps.stem(word) for word in tokens if word not in stopword]
+
+vectorizer = CountVectorizer(analyzer=clean_text)
+X = vectorizer.fit_transform(df['Tweet'])
+
+print(f"{X.shape[0]} tweets with {X.shape[1]} unique words")
+
+# -------------------- Tweet Length Distribution --------------------
+adr_len = tweet_df[tweet_df['ADR_label']==1]['Tweet'].apply(len)
+nadr_len = tweet_df[tweet_df['ADR_label']==0]['Tweet'].apply(len)
+
+bins = np.linspace(0, 100, 20)
+
+plt.hist(adr_len, bins=bins, density=True, alpha=0.5, label='ADR')
+plt.hist(nadr_len, bins=bins, density=True, alpha=0.3, label='Non-ADR')
+
+plt.title("Tweet Length Distribution")
+plt.xlabel("Number of Characters")
+plt.ylabel("Density")
+plt.legend()
+plt.show()

@@ -1,0 +1,86 @@
+import scrapetube
+import requests
+import pandas as pd
+import time
+
+def capture_youtube_data(search_query, limit=20):
+    print(f"--- Capturing YouTube Data for: {search_query} ---")
+    try:
+        videos = scrapetube.get_search(query=search_query, limit=limit)
+        yt_list = []
+
+        for video in videos:
+            yt_list.append({
+                "Platform": "YouTube",
+                "Title": video.get('title', {}).get('runs', [{}])[0].get('text', 'N/A'),
+                "ID_URL": f"https://www.youtube.com/watch?v={video.get('videoId', '')}",
+                "Engagement_Metric": video.get('viewCountText', {}).get('simpleText', 'N/A')
+            })
+
+        return yt_list
+
+    except Exception as e:
+        print(f"Error capturing YouTube data: {e}")
+        return []
+
+
+def capture_reddit_data(subreddit, limit=20):
+    print(f"--- Capturing Reddit Data from: r/{subreddit} ---")
+
+    url = f"https://www.reddit.com/r/{subreddit}/hot.json?limit={limit}"
+    headers = {'User-agent': 'BusinessDataBot 1.0'}
+
+    try:
+        response = requests.get(url, headers=headers)
+        reddit_list = []
+
+        if response.status_code == 200:
+            data = response.json()
+            posts = data['data']['children']
+
+            for post in posts:
+                p = post['data']
+                reddit_list.append({
+                    "Platform": "Reddit",
+                    "Title": p.get('title', 'N/A'),
+                    "ID_URL": f"https://reddit.com{p.get('permalink', '')}",
+                    "Engagement_Metric": f"Score: {p.get('score', 'N/A')}"
+                })
+
+            return reddit_list
+        else:
+            print(f"Failed to reach Reddit. Status: {response.status_code}")
+            return []
+
+    except Exception as e:
+        print(f"Error capturing Reddit data: {e}")
+        return []
+
+
+if __name__ == "__main__":
+    # 1. Select Business Topic
+    topic = "Artificial Intelligence"
+
+    yt_results = capture_youtube_data(topic, limit=20)
+    rd_results = capture_reddit_data("technology", limit=20)
+
+    combined_data = yt_results + rd_results
+
+    if combined_data:
+        df = pd.DataFrame(combined_data)
+
+        print("\n--- Final Captured Business Data (First 10 Rows) ---")
+        print(df.head(10))
+
+        file_name = "social_media_lab_results.csv"
+
+        try:
+            df.to_csv(file_name, index=False)
+            print(f"\nSUCCESS! Captured {len(df)} rows.")
+            print(f"Data saved to: {file_name}")
+
+        except PermissionError:
+            print(f"\nERROR: Could not save data. Please CLOSE the file '{file_name}' in Excel and run the script again.")
+
+    else:
+        print("No data was captured. Check your internet connection.")

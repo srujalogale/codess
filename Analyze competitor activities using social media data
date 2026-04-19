@@ -1,0 +1,83 @@
+# -------------------- Import libraries --------------------
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# -------------------- Dataset --------------------
+data = {
+    "name": [
+        "Nicholas Wyman","Nicholas Wyman","Nicholas Wyman",
+        "Tom Goodwin","Tom Goodwin","Tom Goodwin"
+    ],
+    "time_spent":[5,10,15,5,10,15],
+    "followers":[12000,12500,13000,20000,21000,22000],
+    "reactions":[300,350,400,500,550,600],
+    "comments":[20,25,30,40,45,50],
+    "num_hashtags":[3,5,4,6,5,7],
+    "hashtag_followers":[1000,1200,1100,1500,1600,1700],
+    "views":[10000,11000,12000,15000,16000,17000],
+    "votes":[100,110,120,150,160,170],
+    "media_type":["image","video","text","image","video","text"],
+    "content":["post1","post2","post3","post4","post5","post6"],
+    "connections":[500,520,540,600,620,650],
+    "location":["USA","USA","USA","UK","UK","UK"]
+}
+
+df = pd.DataFrame(data)
+
+# -------------------- Basic Info --------------------
+print(df.head(3))
+print(df.shape)
+print(df.columns)
+print(df.info())
+print(df.describe())
+print(df['name'].unique())
+print(df['name'].unique().shape)
+print(df.isna().sum())
+
+# Drop unnecessary columns
+df = df.drop(columns=['views','votes','media_type','content','connections','location'])
+print(df.isna().sum())
+
+# -------------------- Plot Function --------------------
+def plot_user_data(df_user, name):
+    df_user['followers'] = df_user['followers'].astype(int)
+
+    # Followers vs Time Spent
+    fig, ax = plt.subplots(figsize=(10,5))
+    ax.bar(df_user['time_spent'], df_user['followers'])
+    ax.set_xlabel('Time Spent')
+    ax.set_ylabel('Followers')
+    ax.set_title(f'{name} - Followers vs Time')
+    plt.grid()
+    plt.show()
+
+    # Reactions vs Comments
+    fig, ax = plt.subplots(figsize=(10,5))
+    ax.bar(df_user['time_spent'], df_user['reactions'], label='Reactions')
+    ax.bar(df_user['time_spent'], df_user['comments'], label='Comments')
+    ax.set_xlabel('Time Spent')
+    ax.set_ylabel('Count')
+    ax.set_title(f'{name} - Reactions vs Comments')
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+    # Hashtags vs Hashtag Followers
+    fig, ax = plt.subplots(figsize=(10,5))
+    ax.bar(df_user['time_spent'], df_user['num_hashtags'], label='Hashtags')
+    ax.bar(df_user['time_spent'], df_user['hashtag_followers'], label='Hashtag Followers')
+    ax.set_xlabel('Time Spent')
+    ax.set_ylabel('Numbers')
+    ax.set_title(f'{name} - Hashtags vs Followers')
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+# -------------------- Nicholas Wyman --------------------
+df_first = df[df['name'] == 'Nicholas Wyman'].copy()
+plot_user_data(df_first, "Nicholas Wyman")
+
+# -------------------- Tom Goodwin --------------------
+df_tom = df[df['name'] == 'Tom Goodwin'].copy()
+plot_user_data(df_tom, "Tom Goodwin")

@@ -1,0 +1,118 @@
+import nltk
+nltk.download('stopwords')
+
+import re
+import numpy as np
+import pandas as pd
+from pprint import pprint
+import gensim
+import gensim.corpora as corpora
+from gensim.utils import simple_preprocess
+import matplotlib.pyplot as plt
+from nltk.corpus import stopwords
+from wordcloud import WordCloud
+import spacy
+
+# -------------------- Stopwords --------------------
+stop_words = stopwords.words('english')
+
+# -------------------- SAMPLE DATASET --------------------
+data = {
+    "Text":[
+        "Google search engine is very fast and useful",
+        "Android phones are powered by Google services",
+        "Google maps help people navigate the world",
+        "Machine learning and artificial intelligence are future technologies",
+        "AI and data science are popular in modern computing",
+        "Python programming is widely used in machine learning",
+        "Cloud computing services like Google Cloud are powerful",
+        "People use Google for searching information on internet",
+        "Deep learning improves artificial intelligence applications",
+        "Technology companies invest heavily in AI research"
+    ]
+}
+
+df = pd.DataFrame(data)
+
+# -------------------- Convert sentences to words --------------------
+def sent_to_words(sentences):
+    for sent in sentences:
+        sent = re.sub(r'\s+', ' ', sent)
+        sent = re.sub("'", "", sent)
+        yield simple_preprocess(str(sent), deacc=True)
+
+all_reviews = df['Text'].values.tolist()
+reviews_words = list(sent_to_words(all_reviews))
+
+# -------------------- Build bigram & trigram --------------------
+bigram = gensim.models.Phrases(reviews_words, min_count=2, threshold=5)
+trigram = gensim.models.Phrases(bigram[reviews_words], threshold=5)
+
+bigram_mod = gensim.models.phrases.Phraser(bigram)
+trigram_mod = gensim.models.phrases.Phraser(trigram)
+
+# -------------------- Load spaCy --------------------
+nlp = spacy.load("en_core_web_sm", disable=['parser','ner'])
+
+# -------------------- Text preprocessing --------------------
+def process_words(texts, allowed_postags=['NOUN','ADJ','VERB','ADV']):
+    # remove stopwords
+    texts = [[word for word in simple_preprocess(str(doc)) if word not in stop_words] for doc in texts]
+
+    # apply bigram and trigram
+    texts = [bigram_mod[doc] for doc in texts]
+    texts = [trigram_mod[doc] for doc in texts]
+
+    # lemmatization
+    texts_out = []
+    for sent in texts:
+        doc = nlp(" ".join(sent))
+        texts_out.append([token.lemma_ for token in doc if token.pos_ in allowed_postags])
+
+    return texts_out
+
+data_final = process_words(reviews_words)
+
+# -------------------- Dictionary & Corpus --------------------
+id2word = corpora.Dictionary(data_final)
+corpus = [id2word.doc2bow(text) for text in data_final]
+
+# -------------------- LDA Model --------------------
+lda_model = gensim.models.ldamodel.LdaModel(
+    corpus=corpus,
+    id2word=id2word,
+    num_topics=3,
+    random_state=100,
+    passes=10
+)
+
+# -------------------- Print Topics --------------------
+print("\n--- Topics ---")
+pprint(lda_model.print_topics())
+
+# -------------------- WordCloud --------------------
+cloud = WordCloud(background_color='white')
+topics = lda_model.show_topics(formatted=False)
+
+fig, axes = plt.subplots(2, 2, figsize=(10,8))
+
+for i, ax in enumerate(axes.flatten()):
+    if i < len(topics):
+        topic_words = dict(topics[i][1])
+        cloud.generate_from_frequencies(topic_words)
+        ax.imshow(cloud)
+        ax.set_title('Topic ' + str(i))
+        ax.axis('off')
+
+plt.tight_layout()
+plt.show()
+
+# -------------------- Topic Table --------------------
+word_dict = {}
+
+for i in range(3):
+    words = lda_model.show_topic(i, topn=10)
+    word_dict['Topic #' + str(i)] = [w[0] for w in words]
+
+print("\n--- Topic Word Table ---")
+print(pd.DataFrame(word_dict))

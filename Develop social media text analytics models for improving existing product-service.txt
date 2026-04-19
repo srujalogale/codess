@@ -1,0 +1,118 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from wordcloud import WordCloud
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, ConfusionMatrixDisplay
+
+# -------------------- Dataset --------------------
+data = {
+    "text": [
+        "This movie was fantastic and full of excitement",
+        "Absolutely terrible film and boring storyline",
+        "I loved the acting and the plot was amazing",
+        "Worst movie I have ever watched",
+        "Great direction and wonderful music",
+        "The movie was dull and too long",
+        "Excellent performance by the actors",
+        "Bad script and poor acting",
+        "Amazing cinematography and great story",
+        "Not worth watching at all"
+    ],
+    "label": [
+        "positive","negative","positive","negative","positive",
+        "negative","positive","negative","positive","negative"
+    ]
+}
+
+df = pd.DataFrame(data)
+
+# -------------------- Basic Info --------------------
+print("\nSample Data:")
+print(df.sample(3))
+
+print("\nDataset Info:")
+print(df.info())
+
+print("\nLabel Distribution:")
+print(df["label"].value_counts(normalize=True))
+
+# -------------------- Word Cloud --------------------
+reviews = " ".join(df["text"])
+
+word_cloud = WordCloud(
+    background_color="white",
+    width=800,
+    height=400
+).generate(reviews)
+
+plt.figure(figsize=(12,8))
+plt.imshow(word_cloud, interpolation="bilinear")
+plt.axis("off")
+plt.title("Word Cloud of Reviews")
+plt.show()
+
+# -------------------- TF-IDF --------------------
+pattern = r"[a-zA-Z]+"
+
+vect = TfidfVectorizer(
+    token_pattern=pattern,
+    stop_words="english",
+    ngram_range=(1,2),
+    max_features=50
+)
+
+X_text = vect.fit_transform(df["text"])
+
+features = pd.DataFrame(
+    X_text.toarray(),
+    columns=vect.get_feature_names_out()
+)
+
+# -------------------- Additional Features --------------------
+df["char_count"] = df["text"].str.count(r"\S")
+df["word_count"] = df["text"].str.count(pattern)
+df["avg_word_length"] = df["char_count"] / df["word_count"]
+
+print("\nData with New Features:")
+print(df.sample(3))
+
+# -------------------- Final Dataset --------------------
+X = pd.concat([features, df[["char_count","word_count","avg_word_length"]]], axis=1)
+y = df["label"]
+
+# -------------------- Train-Test Split --------------------
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.25, random_state=42, stratify=y   # FIXED imbalance issue
+)
+
+# -------------------- Model --------------------
+rf = RandomForestClassifier(n_estimators=100, random_state=42)
+rf.fit(X_train, y_train)
+
+y_pred = rf.predict(X_test)
+
+# -------------------- Evaluation --------------------
+print("\nClassification Report:\n")
+print(classification_report(y_test, y_pred))
+
+ConfusionMatrixDisplay.from_estimator(
+    rf,
+    X_test,
+    y_test,
+    normalize="true"
+)
+
+plt.title("Confusion Matrix")
+plt.show()
+
+# -------------------- Feature Importance --------------------
+feature_importance = pd.DataFrame({
+    "feature": X.columns,
+    "importance": rf.feature_importances_
+}).sort_values(by="importance", ascending=False)
+
+print("\nFeature Importance:\n")
+print(feature_importance.head(10))

@@ -1,0 +1,79 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# -------------------- Load Dataset --------------------
+try:
+    social_media_data = pd.read_csv('social_media_data.csv')
+    print("Dataset loaded successfully\n")
+except FileNotFoundError:
+    print("ERROR: 'social_media_data.csv' not found.")
+    exit()
+
+# -------------------- Basic Info --------------------
+print("\n--- Dataset Info ---")
+print(social_media_data.info())
+
+print("\n--- Statistical Summary ---")
+print(social_media_data.describe())
+
+# -------------------- Check Missing Values --------------------
+print("\n--- Missing Values ---")
+print(social_media_data.isnull().sum())
+
+# -------------------- Histogram of Likes --------------------
+if 'likes' in social_media_data.columns:
+    plt.figure(figsize=(10,6))
+    sns.histplot(social_media_data['likes'], kde=True)
+    plt.title('Distribution of Likes')
+    plt.xlabel('Number of Likes')
+    plt.ylabel('Frequency')
+    plt.show()
+else:
+    print("Column 'likes' not found.")
+
+# -------------------- Boxplot: Followers by Platform --------------------
+if 'platform' in social_media_data.columns and 'followers' in social_media_data.columns:
+    plt.figure(figsize=(10,6))
+    sns.boxplot(x='platform', y='followers', data=social_media_data)
+    plt.title('Followers by Platform')
+    plt.xlabel('Platform')
+    plt.ylabel('Number of Followers')
+    plt.show()
+
+# -------------------- Correlation Matrix --------------------
+numeric_cols = social_media_data.select_dtypes(include=np.number)
+
+if not numeric_cols.empty:
+    corr_matrix = numeric_cols.corr()
+
+    plt.figure(figsize=(10,6))
+    sns.heatmap(corr_matrix, annot=True, cmap='coolwarm')
+    plt.title('Correlation Matrix')
+    plt.show()
+else:
+    print("No numeric columns found for correlation.")
+
+# -------------------- Scatter Plot --------------------
+if 'comments' in social_media_data.columns and 'engagement_rate' in social_media_data.columns:
+    plt.figure(figsize=(10,6))
+    sns.scatterplot(x='comments', y='engagement_rate', data=social_media_data)
+    plt.title('Comments vs Engagement Rate')
+    plt.xlabel('Number of Comments')
+    plt.ylabel('Engagement Rate')
+    plt.show()
+
+# -------------------- Likes by Platform --------------------
+if 'platform' in social_media_data.columns and 'likes' in social_media_data.columns:
+    plt.figure(figsize=(10,6))
+    sns.boxplot(x='platform', y='likes', data=social_media_data)
+    plt.title('Likes by Platform')
+    plt.xlabel('Platform')
+    plt.ylabel('Number of Likes')
+    plt.show()
+
+# -------------------- Pairplot --------------------
+if not numeric_cols.empty:
+    sns.pairplot(numeric_cols)
+    plt.show()
